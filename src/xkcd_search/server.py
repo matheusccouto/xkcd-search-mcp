@@ -50,7 +50,11 @@ def _refresh_index() -> None:
 def _poll_loop() -> None:
     while True:
         time.sleep(POLL_INTERVAL_SECONDS)
-        _refresh_index()
+        try:
+            _refresh_index()
+        except Exception as exc:
+            # Keep the old connection serving queries; the next tick retries.
+            print(f"index refresh failed, will retry next poll: {exc!r}", flush=True)
 
 
 def _ensure_ready() -> sqlite3.Connection:
