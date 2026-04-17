@@ -1,0 +1,51 @@
+[project]
+name = "xkcd-search"
+version = "0.1.0"
+description = "Semantic search for xkcd comics, served over MCP"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Matheus Couto", email = "matheusccouto@gmail.com" },
+]
+requires-python = ">=3.12"
+dependencies = [
+    "fastmcp>=3.2.4",
+    "httpx>=0.28.1",
+    "mwparserfromhell>=0.7.2",
+    "platformdirs>=4.9.6",
+    "sentence-transformers>=5.4.1",
+    "sqlite-vec>=0.1.9",
+]
+
+[project.urls]
+Homepage = "https://github.com/matheusccouto/xkcd-search-mcp"
+Repository = "https://github.com/matheusccouto/xkcd-search-mcp"
+
+[build-system]
+requires = ["uv_build>=0.8.17,<0.9.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "xkcd_search"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "SIM"]
+
+[tool.ty.environment]
+python-version = "3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+    "pytest-recording>=0.13.4",
+    "ruff>=0.15.11",
+    "ty>=0.0.31",
+]

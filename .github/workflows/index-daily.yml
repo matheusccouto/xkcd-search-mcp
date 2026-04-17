@@ -1,0 +1,62 @@
+name: index-daily
+
+on:
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: index-daily
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Cache Hugging Face model hub
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface/hub
+          key: hf-hub-bge-small-en-v1.5
+
+      - name: Install project dependencies
+        run: uv sync --frozen
+
+      - name: Build index
+        env:
+          XKCD_INDEX_DIR: ${{ github.workspace }}/build
+        run: |
+          mkdir -p "$XKCD_INDEX_DIR"
+          uv run python -m xkcd_search.indexer_main
+
+      - name: Check artifact size
+        run: |
+          ls -lh "${{ github.workspace }}/build/index.sqlite"
+          size=$(stat -c%s "${{ github.workspace }}/build/index.sqlite")
+          echo "index.sqlite is $size bytes"
+          if [ "$size" -gt 1073741824 ]; then
+            echo "artifact exceeds 1 GiB; aborting" >&2
+            exit 1
+          fi
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="data-$(date -u +%Y-%m-%d-%H%M%S)"
+          gh release create "$tag" \
+            "${{ github.workspace }}/build/index.sqlite" \
+            --title "Index $(date -u +%Y-%m-%d)" \
+            --notes "Automated daily rebuild. Corpus: xkcd.com + explainxkcd.com wikitext (CC BY-SA 3.0)."

@@ -1,0 +1,18 @@
+xkcd-search-mcp
+Copyright 2026 Matheus Couto
+
+This project contains two distinct licensing domains:
+
+1. Source code (everything in src/, tests/, workflows, config files)
+   Licensed under the Apache License, Version 2.0. See LICENSE.
+
+2. Indexed content derived from explainxkcd.com
+   (generated SQLite index, released as a GitHub Release asset)
+   Licensed under Creative Commons Attribution-ShareAlike 3.0 Unported
+   (CC BY-SA 3.0). See DATA_LICENSE.
+   Source wiki: https://www.explainxkcd.com/
+
+3. xkcd comic images are the work of Randall Munroe, licensed under
+   Creative Commons Attribution-NonCommercial 2.5 (CC BY-NC 2.5).
+   This project links to those images but does not rehost them.
+   Source: https://xkcd.com/license.html
