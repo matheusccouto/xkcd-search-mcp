@@ -69,3 +69,26 @@ def test_search_xkcd_respects_field_flags(built_index):
     assert "explanation" not in hits[0]
     assert "image_url" not in hits[0]
     assert "alt_text" not in hits[0]
+
+
+def test_get_comic_returns_indexed_comic(built_index):
+    async def run() -> dict:
+        async with Client(server.mcp) as client:
+            result = await client.call_tool("get_comic", {"number": 327})
+            return result.data
+
+    comic = asyncio.run(run())
+    assert comic["number"] == 327
+    assert comic["url"] == "https://xkcd.com/327/"
+    assert "similarity" not in comic
+    assert "transcript" in comic
+    assert "explanation" in comic
+
+
+def test_get_comic_returns_none_for_missing_number(built_index):
+    async def run():
+        async with Client(server.mcp) as client:
+            result = await client.call_tool("get_comic", {"number": 999999})
+            return result.data
+
+    assert asyncio.run(run()) is None

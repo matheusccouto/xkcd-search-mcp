@@ -93,6 +93,30 @@ def _fetch_comics(numbers: list[int], conn: sqlite3.Connection) -> dict[int, dic
     }
 
 
+def _project_fields(
+    comic: dict[str, Any],
+    *,
+    include_image_url: bool,
+    include_alt_text: bool,
+    include_transcript: bool,
+    include_explanation: bool,
+) -> dict[str, Any]:
+    out: dict[str, Any] = {
+        "number": comic["number"],
+        "title": comic["title"],
+        "url": comic["url"],
+    }
+    if include_image_url:
+        out["image_url"] = comic["image_url"]
+    if include_alt_text:
+        out["alt_text"] = comic["alt_text"]
+    if include_transcript:
+        out["transcript"] = comic["transcript"]
+    if include_explanation:
+        out["explanation"] = comic["explanation"]
+    return out
+
+
 @mcp.tool
 def search_xkcd(
     query: str,
@@ -119,23 +143,45 @@ def search_xkcd(
 
     results: list[dict[str, Any]] = []
     for number, similarity in hits:
-        comic = comics[number]
-        out: dict[str, Any] = {
-            "number": comic["number"],
-            "title": comic["title"],
-            "url": comic["url"],
-            "similarity": round(float(similarity), 4),
-        }
-        if include_image_url:
-            out["image_url"] = comic["image_url"]
-        if include_alt_text:
-            out["alt_text"] = comic["alt_text"]
-        if include_transcript:
-            out["transcript"] = comic["transcript"]
-        if include_explanation:
-            out["explanation"] = comic["explanation"]
+        out = _project_fields(
+            comics[number],
+            include_image_url=include_image_url,
+            include_alt_text=include_alt_text,
+            include_transcript=include_transcript,
+            include_explanation=include_explanation,
+        )
+        out["similarity"] = round(float(similarity), 4)
         results.append(out)
     return results
+
+
+@mcp.tool
+def get_comic(
+    number: int,
+    include_transcript: bool = True,
+    include_explanation: bool = True,
+    include_image_url: bool = True,
+    include_alt_text: bool = True,
+) -> dict[str, Any] | None:
+    """Fetch a single xkcd comic by its number. Returns `None` if not indexed.
+
+    Use this when the caller already knows the comic number (e.g. "xkcd 353").
+    For text-similarity lookups, use `search_xkcd`. The `url` points to
+    xkcd.com; cite it when referencing a comic. The `explanation` field, when
+    included, is the raw explainxkcd wikitext (CC BY-SA 3.0: attribution
+    required).
+    """
+    conn = _ensure_ready()
+    comic = _fetch_comics([int(number)], conn).get(int(number))
+    if comic is None:
+        return None
+    return _project_fields(
+        comic,
+        include_image_url=include_image_url,
+        include_alt_text=include_alt_text,
+        include_transcript=include_transcript,
+        include_explanation=include_explanation,
+    )
 
 
 def bootstrap() -> None:
