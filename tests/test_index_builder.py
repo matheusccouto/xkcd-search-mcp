@@ -11,18 +11,7 @@ from xkcd_search.index_builder import (
     query_top_k,
     upsert_comic,
 )
-from xkcd_search.sources import fetch_explainxkcd, fetch_xkcd, new_client
-
-# Three thematically distinct comics: Overton window (politics), Python (programming),
-# Exploits of a Mom (SQL injection). A semantic query about any one topic should
-# bring that comic to rank 1.
-FIXTURE_NUMBERS = [3230, 353, 327]
-
-
-@pytest.fixture
-def client():
-    with new_client() as c:
-        yield c
+from xkcd_search.sources import fetch_explainxkcd, fetch_xkcd
 
 
 @pytest.fixture
@@ -55,9 +44,9 @@ def test_gap_stored_when_article_missing(index_path, client):
 
 
 @pytest.mark.vcr
-def test_top_k_ranks_semantically_closest_comic_first(index_path, client):
+def test_top_k_ranks_semantically_closest_comic_first(index_path, client, fixture_numbers):
     conn = open_connection(index_path)
-    for number in FIXTURE_NUMBERS:
+    for number in fixture_numbers:
         xkcd = fetch_xkcd(number, client)
         article = fetch_explainxkcd(number, client)
         upsert_comic(conn, xkcd, article)
@@ -66,5 +55,5 @@ def test_top_k_ranks_semantically_closest_comic_first(index_path, client):
     hits = query_top_k(conn, query_vec, k=3)
     assert hits[0][0] == 3230
     assert hits[0][1] > 0.3
-    assert {n for n, _ in hits} <= set(FIXTURE_NUMBERS)
+    assert {n for n, _ in hits} <= set(fixture_numbers)
     conn.close()

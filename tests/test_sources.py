@@ -7,14 +7,7 @@ from xkcd_search.sources import (
     fetch_explainxkcd,
     fetch_latest_xkcd_number,
     fetch_xkcd,
-    new_client,
 )
-
-
-@pytest.fixture
-def client():
-    with new_client() as c:
-        yield c
 
 
 @pytest.mark.vcr
@@ -43,7 +36,6 @@ def test_fetch_explainxkcd_returns_wikitext_for_known_article(client):
 
 @pytest.mark.vcr
 def test_fetch_explainxkcd_returns_none_for_missing_article(client):
-    # Comic number 999999 will never exist; MediaWiki returns an error.
     article = fetch_explainxkcd(999999, client)
     assert article is None
 
@@ -56,7 +48,6 @@ def test_chunk_comic_produces_title_and_sections(client):
     kinds = [c.kind for c in chunks]
     assert "title" in kinds
     assert any(k.startswith("section:") for k in kinds)
-    # Every chunk has non-trivial text.
     assert all(len(c.text) >= 20 for c in chunks if c.kind != "title")
 
 

@@ -10,15 +10,13 @@ from xkcd_search import server
 from xkcd_search.index_builder import open_connection, upsert_comic
 from xkcd_search.sources import fetch_explainxkcd, fetch_xkcd, new_client
 
-FIXTURE_NUMBERS = [3230, 353, 327]
-
 
 @pytest.fixture
-def built_index(tmp_path: Path, monkeypatch):
+def built_index(tmp_path: Path, monkeypatch, fixture_numbers):
     index_path = tmp_path / "index.sqlite"
     conn = open_connection(index_path)
     with new_client() as client:
-        for number in FIXTURE_NUMBERS:
+        for number in fixture_numbers:
             xkcd = fetch_xkcd(number, client)
             article = fetch_explainxkcd(number, client)
             upsert_comic(conn, xkcd, article)

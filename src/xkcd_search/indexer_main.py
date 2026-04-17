@@ -11,7 +11,7 @@ from xkcd_search.sources import fetch_explainxkcd, fetch_latest_xkcd_number, fet
 
 REQUEST_DELAY_SECONDS = 0.1
 
-# xkcd 404 famously returns a 404 Not Found by design — skip it.
+# Comic 404 returns HTTP 404 by design (the joke); the fetcher would raise on it.
 SKIP_NUMBERS = {404}
 
 
@@ -39,10 +39,12 @@ def run() -> int:
             if processed % 50 == 0:
                 print(f"processed {processed} comics (current: {n})", flush=True)
 
-    final = iter_known_comics(conn)
-    with_article = sum(1 for v in final.values() if v is not None)
-    gaps = sum(1 for v in final.values() if v is None)
-    print(f"done: {len(final)} comics total, {with_article} with article, {gaps} gaps")
+    total = conn.execute("SELECT COUNT(*) FROM comics").fetchone()[0]
+    with_article = conn.execute(
+        "SELECT COUNT(*) FROM comics WHERE explained_at IS NOT NULL"
+    ).fetchone()[0]
+    gaps = total - with_article
+    print(f"done: {total} comics total, {with_article} with article, {gaps} gaps")
     conn.close()
     return 0
 

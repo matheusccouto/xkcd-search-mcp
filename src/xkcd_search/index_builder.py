@@ -10,13 +10,10 @@ import numpy as np
 import sqlite_vec
 
 from xkcd_search import embeddings
+from xkcd_search.config import EMBED_DIM
 from xkcd_search.sources import ExplainArticle, XkcdMeta, chunk_comic
 
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")
-
-
-def _schema_sql() -> str:
-    return SCHEMA_PATH.read_text()
 
 
 def open_connection(path: Path, read_only: bool = False) -> sqlite3.Connection:
@@ -31,7 +28,7 @@ def open_connection(path: Path, read_only: bool = False) -> sqlite3.Connection:
     sqlite_vec.load(conn)
     conn.enable_load_extension(False)
     if not read_only:
-        conn.executescript(_schema_sql())
+        conn.executescript(SCHEMA_PATH.read_text())
         conn.commit()
     return conn
 
@@ -49,12 +46,13 @@ def _replace_chunks(
     chunk_texts: list[str],
     vectors: np.ndarray,
 ) -> None:
-    old_rowids = [
-        row[0] for row in conn.execute("SELECT rowid FROM chunks WHERE number = ?", (number,))
-    ]
-    if old_rowids:
-        conn.executemany("DELETE FROM chunks WHERE rowid = ?", [(rid,) for rid in old_rowids])
-        conn.executemany("DELETE FROM chunk_vec WHERE rowid = ?", [(rid,) for rid in old_rowids])
+    # sqlite-vec's vec0 virtual table doesn't support FK cascade, so delete both tables
+    # by a subquery on the parent rowid set rather than N executemany round-trips.
+    conn.execute(
+        "DELETE FROM chunk_vec WHERE rowid IN (SELECT rowid FROM chunks WHERE number = ?)",
+        (number,),
+    )
+    conn.execute("DELETE FROM chunks WHERE number = ?", (number,))
     for kind, text, vector in zip(chunk_kinds, chunk_texts, vectors, strict=True):
         cursor = conn.execute(
             "INSERT INTO chunks(number, kind, text) VALUES (?, ?, ?)",
@@ -76,7 +74,7 @@ def upsert_comic(
     chunks = chunk_comic(xkcd, article)
     kinds = [c.kind for c in chunks]
     texts = [c.text for c in chunks]
-    vectors = embeddings.encode(texts) if texts else np.zeros((0, 384), dtype=np.float32)
+    vectors = embeddings.encode(texts) if texts else np.zeros((0, EMBED_DIM), dtype=np.float32)
 
     explained_at = datetime.now(UTC).isoformat() if article is not None else None
     conn.execute(
@@ -115,7 +113,7 @@ def query_top_k(
 ) -> list[tuple[int, float]]:
     """Return [(comic_number, similarity)] dedup'd by comic, highest similarity first."""
     assert query_vec.dtype == np.float32
-    assert query_vec.shape == (384,)
+    assert query_vec.shape == (EMBED_DIM,)
     pool = max(k * 10, 50)
     rows = conn.execute(
         """
