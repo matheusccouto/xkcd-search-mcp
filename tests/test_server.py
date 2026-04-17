@@ -71,6 +71,7 @@ def test_search_xkcd_respects_field_flags(built_index):
     assert "alt_text" not in hits[0]
 
 
+@pytest.mark.vcr
 def test_get_comic_returns_indexed_comic(built_index):
     async def run() -> dict:
         async with Client(server.mcp) as client:
@@ -85,6 +86,7 @@ def test_get_comic_returns_indexed_comic(built_index):
     assert "explanation" in comic
 
 
+@pytest.mark.vcr
 def test_get_comic_returns_none_for_missing_number(built_index):
     async def run():
         async with Client(server.mcp) as client:
