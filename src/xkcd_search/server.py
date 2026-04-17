@@ -1,4 +1,4 @@
-"""FastMCP server exposing the `search_xkcd` tool.
+"""FastMCP server exposing the `search_xkcd` and `get_comic` tools.
 
 Downloads the latest `index.sqlite` release asset on first query, opens a
 read-only connection, and starts a 1-hour poll loop that swaps the connection
@@ -172,7 +172,8 @@ def get_comic(
     required).
     """
     conn = _ensure_ready()
-    comic = _fetch_comics([int(number)], conn).get(int(number))
+    n = int(number)
+    comic = _fetch_comics([n], conn).get(n)
     if comic is None:
         return None
     return _project_fields(
