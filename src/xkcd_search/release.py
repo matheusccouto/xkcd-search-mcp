@@ -1,12 +1,11 @@
-"""Upload and download the index artifact to / from GitHub Releases.
+"""Download the index artifact from the repo's latest GitHub Release.
 
-The daily indexer uploads via the `gh` CLI (preinstalled on ubuntu-latest runners).
+The daily indexer uploads via the `gh` CLI directly in the Actions YAML.
 The MCP server downloads via the public REST API (60 req/hr/IP, no auth required).
 """
 
 from __future__ import annotations
 
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -81,17 +80,3 @@ def download_latest(
     finally:
         if owned:
             client.close()
-
-
-def upload_release(path: Path, tag: str, title: str, notes: str) -> None:
-    """Create a GitHub release with `path` attached as the `index.sqlite` asset.
-
-    Uses the `gh` CLI which authenticates via the ambient GITHUB_TOKEN in Actions
-    or the local gh config otherwise. No secrets are read or logged here.
-    """
-    if not path.is_file():
-        raise FileNotFoundError(path)
-    subprocess.run(
-        ["gh", "release", "create", tag, str(path), "--title", title, "--notes", notes],
-        check=True,
-    )
