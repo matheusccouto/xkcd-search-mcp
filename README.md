@@ -9,15 +9,18 @@ wiki.
 
 ## Connect
 
-Once deployed, the MCP endpoint will be available at:
+The public MCP endpoint:
 
 ```
-https://<your-project>.fastmcp.app/mcp
+https://xkcd-search.fastmcp.app/mcp
 ```
 
 Point any MCP client (Claude Desktop, mcp-inspector, Cursor, etc.) at that URL.
 
-## The tool
+See [Hosting](#hosting) for notes on the current authentication situation on
+FastMCP Cloud and the fallback plan.
+
+## The tools
 
 ```python
 search_xkcd(
@@ -30,9 +33,23 @@ search_xkcd(
 ) -> list[dict]
 ```
 
-Every result includes `number`, `title`, `url`, and `similarity`. The boolean
-flags let the caller opt into heavier fields per call rather than baking the
-choice into the server.
+Semantic top-K lookup. Every result includes `number`, `title`, `url`, and
+`similarity`. The boolean flags let the caller opt into heavier fields per
+call rather than baking the choice into the server.
+
+```python
+get_comic(
+    number: int,
+    include_transcript: bool = True,
+    include_explanation: bool = True,
+    include_image_url: bool = True,
+    include_alt_text: bool = True,
+) -> dict | None
+```
+
+Direct lookup by comic number. Returns `None` if the comic is not in the
+index (either unpublished or skipped, like comic 404). Useful when the caller
+already knows which comic it wants.
 
 ## How it works
 
@@ -60,6 +77,26 @@ uv run fastmcp dev src/xkcd_search/server.py  # open the FastMCP inspector
 
 The indexer caches to `platformdirs.user_cache_dir("xkcd-search", "matheus")`
 by default; override with `XKCD_INDEX_DIR`.
+
+For a fast CI iteration against the daily workflow, set `XKCD_INDEXER_LIMIT`
+(or pass `limit` via `workflow_dispatch`) to cap how many new comics one run
+fetches.
+
+## Hosting
+
+The server is designed to be dead simple to host: one Python process, one
+downloaded SQLite file. There is no database, no secrets, no credentials.
+
+**Current:** FastMCP Cloud, free tier. The free tier requires the server to
+sit behind an OAuth provider (Horizon by Prefect) for anonymous public access,
+which is a barrier for some MCP clients. The endpoint above works for clients
+that support OAuth; for clients that don't, see the fallback.
+
+**Fallback — Hugging Face Spaces (CPU Basic).** Free forever, 16 GB RAM, 2
+vCPU, no credit card. Cold-starts after ~48 h idle but serves unauthenticated
+HTTPS once warm. Migration is a Docker-SDK Space that runs FastMCP's HTTP
+transport. No code change is required — the server downloads its own data on
+first query regardless of where it runs.
 
 ## Contributing
 
