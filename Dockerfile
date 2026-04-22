@@ -10,7 +10,7 @@ COPY pyproject.toml uv.lock ./
 # layer below is only invalidated by dependency changes, not source changes.
 RUN uv sync --frozen --no-dev --no-install-project
 
-RUN uv run python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-small-en-v1.5')"
+RUN uv run --no-project python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-small-en-v1.5')"
 
 COPY README.md LICENSE ./
 COPY src/ ./src/
