@@ -14,10 +14,8 @@ import sys
 from typing import Any
 
 from fastmcp import FastMCP
-from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import HTMLResponse
-from starlette.routing import Route
 
 from xkcd_search.builder import INDEX_PATH, encode, new_client, open_connection, query_top_k
 
@@ -70,68 +68,36 @@ def search_xkcd(query: str, k: int = 5) -> list[dict[str, Any]]:
     return [dict(by_number[n]) for n in numbers if n in by_number]
 
 
-LANDING_HTML = """
-<!DOCTYPE html>
+LANDING_HTML = """<!DOCTYPE html>
 <html>
 <head>
-    <title>xkcd-search MCP Server</title>
-    <style>
-        body {
-            font-family: system-ui, sans-serif;
-            max-width: 800px;
-            margin: 40px auto;
-            padding: 20px;
-        }
-        h1 { color: #1a1a2e; }
-        code { background: #f4f4f4; padding: 2px 6px; border-radius: 4px; }
-        pre { background: #f4f4f4; padding: 16px; border-radius: 8px; overflow-x: auto; }
-        .endpoint { color: #e94560; font-weight: bold; }
-        a { color: #0f3460; }
-    </style>
+<title>xkcd-search MCP</title>
+<style>
+body{font-family:system-ui;max-width:800px;margin:40px auto;padding:20px}
+h1{color:#1a1a2e}code{background:#f4f4f4;padding:2px 6px;border-radius:4px}
+.endpoint{color:#e94560;font-weight:bold}
+</style>
 </head>
 <body>
-    <h1>🔎 xkcd-search MCP Server</h1>
-    <p>Semantic search for xkcd comics via the Model Context Protocol.</p>
-    
-    <h2>MCP Endpoint</h2>
-    <p><code class="endpoint">https://couto-xkcd-search.hf.space/mcp</code></p>
-    
-    <h2>How to Connect</h2>
-    <p>Add to your MCP client configuration (Claude Desktop, Cursor, VS Code, etc.):</p>
-    <pre>
-{
-  "mcpServers": {
-    "xkcd-search": {
-      "url": "https://couto-xkcd-search.hf.space/mcp"
-    }
-  }
-}
-    </pre>
-    
-    <h2>Available Tool</h2>
-    <p><code>search_xkcd(query: str, k: int = 5)</code> - Returns top-K relevant comics.</p>
-    
-    <h2>More Info</h2>
-    <p><a href="https://github.com/matheusccouto/xkcd-search-mcp">GitHub Repository</a></p>
-    
-    <hr>
-    <p><small>Data from explainxkcd.com (CC BY-SA 3.0). Comic images by Randall Munroe.</small></p>
+<h1>🔎 xkcd-search MCP</h1>
+<p>Semantic search for xkcd comics via MCP.</p>
+<h2>Endpoint</h2>
+<p><code class="endpoint">https://couto-xkcd-search.hf.space/mcp</code></p>
+<h2>Connect</h2>
+<p>Add to your MCP client config:</p>
+<pre>{"mcpServers":{"xkcd-search":{"url":"https://couto-xkcd-search.hf.space/mcp"}}}</pre>
+<p><a href="https://github.com/matheusccouto/xkcd-search-mcp">GitHub</a></p>
 </body>
-</html>
-"""
+</html>"""
 
 
+@mcp.custom_route("/", methods=["GET"])
 async def landing(request: Request) -> HTMLResponse:
-    """Serve landing page for browsers, 406 for MCP clients."""
+    """Landing page for browsers."""
     accept = request.headers.get("accept", "")
     if "text/html" in accept:
         return HTMLResponse(LANDING_HTML)
-    return HTMLResponse(content="", status_code=406)
-
-
-mcp_app = mcp.http_app(transport="streamable-http", path="/mcp")
-routes = list(mcp_app.routes) + [Route("/", landing)]
-app = Starlette(routes=routes, lifespan=mcp_app.lifespan)
+    return HTMLResponse(status_code=406)
 
 
 if "pytest" not in sys.modules and os.getenv("XKCD_SKIP_BOOTSTRAP") != "1":
@@ -141,6 +107,4 @@ if "pytest" not in sys.modules and os.getenv("XKCD_SKIP_BOOTSTRAP") != "1":
 
 
 if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", "7860")))
+    mcp.run(transport="http", host="0.0.0.0", port=int(os.getenv("PORT", "7860")), path="/mcp")
