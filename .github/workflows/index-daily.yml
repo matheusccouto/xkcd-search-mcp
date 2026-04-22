@@ -72,9 +72,10 @@ jobs:
             --title "Index $(date -u +%Y-%m-%d)" \
             --notes "Automated daily rebuild. Corpus: xkcd.com + explainxkcd.com wikitext (CC BY-SA 3.0)."
 
-      - name: Trigger FastMCP redeploy
+      - name: Restart HF Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit --allow-empty -m "redeploy: new index artifact"
-          git push
+          curl -sf -X POST \
+            "https://huggingface.co/api/spaces/couto/xkcd-search/restart" \
+            -H "Authorization: Bearer $HF_TOKEN"
