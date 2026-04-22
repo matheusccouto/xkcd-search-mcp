@@ -77,8 +77,8 @@ def encode(texts: list[str]) -> np.ndarray:
     return vectors.astype(np.float32, copy=False)
 
 
-def new_client(timeout: float = 30.0) -> httpx.Client:
-    return httpx.Client(headers={"User-Agent": USER_AGENT}, timeout=timeout)
+def new_client(timeout: float = 30.0, follow_redirects: bool = False) -> httpx.Client:
+    return httpx.Client(headers={"User-Agent": USER_AGENT}, timeout=timeout, follow_redirects=follow_redirects)
 
 
 def fetch_latest_xkcd_number(client: httpx.Client) -> int:
@@ -165,6 +165,7 @@ def open_connection(path: Path, read_only: bool = False) -> sqlite3.Connection:
         conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True, check_same_thread=False)
     else:
         conn = sqlite3.connect(path, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
     conn.enable_load_extension(True)
     sqlite_vec.load(conn)
     conn.enable_load_extension(False)
