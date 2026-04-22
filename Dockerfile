@@ -1,6 +1,6 @@
 FROM python:3.12-slim
 
-ARG EMBED_MODEL=BAAI/bge-small-en-v1.5
+ARG EMBED_MODEL=BAAI/bge-small-en-v1.5  # Keep in sync with builder.py EMBED_MODEL_NAME
 
 RUN pip install --no-cache-dir uv
 

@@ -23,7 +23,7 @@ from sentence_transformers import SentenceTransformer
 INDEX_PATH = Path.home() / ".cache" / "xkcd-search" / "index.sqlite"
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")
 
-EMBED_MODEL_NAME = "BAAI/bge-small-en-v1.5"
+EMBED_MODEL_NAME = "BAAI/bge-small-en-v1.5"  # Update Dockerfile + workflow cache if changed
 EMBED_DIM = 384
 
 USER_AGENT = "xkcd-search-mcp (https://github.com/matheusccouto/xkcd-search-mcp)"
