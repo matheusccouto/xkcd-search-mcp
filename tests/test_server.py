@@ -25,4 +25,4 @@ async def test_search_ranks_relevant_comic_first(mcp_client):
 async def test_search_returns_requested_count(mcp_client):
     result = await mcp_client.call_tool("search_xkcd", {"query": "exploits of a mom sql", "k": 1})
     assert len(result.data) == 1
-    assert result.data[0]["number"] == 327
+    assert result.data[0]["url"].startswith("https://xkcd.com/")

@@ -9,6 +9,7 @@ re-downloads the fresh artifact.
 from __future__ import annotations
 
 import os
+import sqlite3
 import sys
 from typing import Any
 

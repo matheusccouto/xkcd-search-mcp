@@ -78,7 +78,9 @@ def encode(texts: list[str]) -> np.ndarray:
 
 
 def new_client(timeout: float = 30.0, follow_redirects: bool = False) -> httpx.Client:
-    return httpx.Client(headers={"User-Agent": USER_AGENT}, timeout=timeout, follow_redirects=follow_redirects)
+    return httpx.Client(
+        headers={"User-Agent": USER_AGENT}, timeout=timeout, follow_redirects=follow_redirects
+    )
 
 
 def fetch_latest_xkcd_number(client: httpx.Client) -> int:
