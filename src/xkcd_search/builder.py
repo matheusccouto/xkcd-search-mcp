@@ -177,7 +177,13 @@ def open_connection(path: Path, read_only: bool = False) -> sqlite3.Connection:
     return conn
 
 
-def iter_known_comics(conn: sqlite3.Connection) -> dict[int, str | None]:
+def get_indexed_comics(conn: sqlite3.Connection) -> dict[int, str | None]:
+    """Return comic numbers mapped to their `explained_at` timestamp (or None).
+
+    Comics with a non-None value have been indexed with explainxkcd content and
+    are skipped during incremental rebuilds. Comics with None are re-indexed to
+    catch newly-added explanations.
+    """
     rows = conn.execute("SELECT number, explained_at FROM comics").fetchall()
     return {int(number): explained_at for number, explained_at in rows}
 
@@ -210,7 +216,7 @@ def upsert_comic(conn: sqlite3.Connection, xkcd: XkcdMeta, article: ExplainArtic
             xkcd.img,
             xkcd.alt,
             xkcd.transcript,
-            article.wikitext if article is not None else None,
+            article.wikitext if article else None,
             explained_at,
         ),
     )
@@ -256,12 +262,12 @@ def main() -> int:
     conn = open_connection(INDEX_PATH)
     with new_client() as client:
         latest = fetch_latest_xkcd_number(client)
-        known = iter_known_comics(conn)
-        print(f"latest comic: {latest}; already indexed: {len(known)}", flush=True)
+        indexed = get_indexed_comics(conn)
+        print(f"latest comic: {latest}; already indexed: {len(indexed)}", flush=True)
 
         processed = 0
         for n in range(1, latest + 1):
-            if n in SKIP_NUMBERS or known.get(n) is not None:
+            if n in SKIP_NUMBERS or indexed.get(n) is not None:
                 continue
             xkcd = fetch_xkcd(n, client)
             article = fetch_explainxkcd(n, client)

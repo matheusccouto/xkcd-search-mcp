@@ -57,11 +57,11 @@ def search_xkcd(query: str, k: int = 5) -> list[dict[str, Any]]:
     if not numbers:
         return []
     placeholders = ",".join("?" * len(numbers))
-    rows = _conn.execute(
-        f"SELECT number, title, url, image_url, alt_text, transcript, explanation "
-        f"FROM comics WHERE number IN ({placeholders})",
-        numbers,
-    ).fetchall()
+    sql = (
+        "SELECT number, title, url, image_url, alt_text, transcript, explanation "
+        f"FROM comics WHERE number IN ({placeholders})"
+    )
+    rows = _conn.execute(sql, numbers).fetchall()
     by_number = {r["number"]: r for r in rows}
     return [dict(by_number[n]) for n in numbers if n in by_number]
 

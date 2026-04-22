@@ -1,6 +1,6 @@
 # xkcd-search-mcp
 
-Remote MCP server exposing a single tool, `search_xkcd`, for semantic search over xkcd plus explainxkcd. The corpus is rebuilt nightly by a GitHub Action, shipped as an `index.sqlite` Release asset, and the workflow pushes an empty commit to `main` so FastMCP cloud auto-redeploys. The server downloads the asset once at boot; there is no polling. The live endpoint is `https://xkcd-search.fastmcp.app/mcp`.
+Remote MCP server exposing a single tool, `search_xkcd`, for semantic search over xkcd plus explainxkcd. The corpus is rebuilt nightly by a GitHub Action, shipped as an `index.sqlite` Release asset, and the workflow calls the HF Spaces restart API to redeploy. The server downloads the asset once at boot; there is no polling. The live endpoint is `https://couto-xkcd-search.hf.space/mcp`.
 
 ## Layout
 
@@ -18,7 +18,7 @@ Python 3.12, managed with `uv`. Linting `ruff`, typechecking `ty`. MCP via `fast
 
 - `uv sync` install
 - `uv run pytest` integration tests (in-process Client, hits xkcd.com + explainxkcd.com once per session to build the fixture)
-- `XKCD_TEST_URL=https://xkcd-search.fastmcp.app/mcp uv run pytest tests/test_server.py` run the same suite against the live cloud endpoint (OAuth, opt-in)
+- `XKCD_TEST_URL=https://couto-xkcd-search.hf.space/mcp uv run pytest tests/test_server.py` run the same suite against the live HF Space endpoint
 - `uv run ruff check . && uv run ruff format --check . && uv run ty check` lint plus typecheck
 - `uv run python -m xkcd_search.builder` rebuild the index locally (full run, no limit flag)
 - `uv run fastmcp dev src/xkcd_search/server.py` open the FastMCP inspector
@@ -47,9 +47,9 @@ Python 3.12, managed with `uv`. Linting `ruff`, typechecking `ty`. MCP via `fast
 
 <important if="you are editing .github/workflows/index-daily.yml">
 - The `schedule: 0 5 * * *` plus `workflow_dispatch` combination is the only thing keeping the scheduled workflow from auto-disabling after 60 days of inactivity on a dormant repo.
-- The Hugging Face model cache key is `hf-hub-bge-small-en-v1.5`. If the embedding model changes, bump the key or cached weights will go stale.
+- The Hugging Face model cache key is `hf-hub-bge-small-en-v1.5`. If the embedding model changes, update both the cache key and the Dockerfile `EMBED_MODEL` build arg.
 - `concurrency: group: index-daily, cancel-in-progress: false`, keep this. Two overlapping indexers corrupt the release asset.
-- The final step pushes an empty commit to `main`. FastMCP cloud redeploys on push and the new process downloads the fresh Release asset on boot. If you swap this for a webhook, make sure the redeploy actually happens; otherwise the server will keep serving yesterday's data.
+- The final step calls the HF Spaces restart API (`POST /api/spaces/{repo}/restart`) which triggers a rebuild. The new container downloads the fresh Release asset on boot.
 - The actions/cache entry at `~/.cache/xkcd-search` is the partial-build cache. The builder is incremental: each run starts from yesterday's SQLite and only fetches new comics. Losing the cache forces a full rebuild (~1 hour).
 </important>
 

@@ -1,16 +1,16 @@
 FROM python:3.12-slim
 
+ARG EMBED_MODEL=BAAI/bge-small-en-v1.5
+
 RUN pip install --no-cache-dir uv
 
 WORKDIR /app
 
 COPY pyproject.toml uv.lock ./
 
-# Install external deps without the local package so the model download
-# layer below is only invalidated by dependency changes, not source changes.
 RUN uv sync --frozen --no-dev --no-install-project
 
-RUN uv run --no-project python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-small-en-v1.5')"
+RUN uv run --no-project python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('$EMBED_MODEL')"
 
 COPY README.md LICENSE ./
 COPY src/ ./src/
