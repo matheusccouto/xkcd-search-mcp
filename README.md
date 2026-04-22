@@ -45,9 +45,8 @@ referencing a comic.
 3. Chunks are embedded with `BAAI/bge-small-en-v1.5` (384-dim, L2-normalized)
    and written into a single `index.sqlite` file backed by `sqlite-vec`.
 4. The artifact is published as the `index.sqlite` asset on the repo's latest
-   GitHub Release, and the workflow pushes an empty commit to `main`. The
-   Hugging Face Space is linked to this GitHub repo, so that push triggers
-   a rebuild.
+   GitHub Release, and the workflow calls the Hugging Face Spaces restart API
+   to trigger a rebuild.
 5. The FastMCP server downloads that asset on boot. Queries run locally
    against the SQLite file; there is no background polling.
 
@@ -85,10 +84,9 @@ downloaded SQLite file. There is no database, no secrets, no credentials.
 
 Runs on Hugging Face Spaces (CPU Basic, free tier: 16 GB RAM, 2 vCPU) as a
 Docker-SDK Space. The `Dockerfile` at the repo root is the build recipe. The
-Space is linked to this GitHub repo, so every push to `main` (including the
-nightly empty-commit from the indexer) rebuilds it. Spaces on the free tier
-cold-start after ~48 h idle; first request after a long sleep pays the wake-up
-latency.
+Space is linked to this GitHub repo, so every push to `main` triggers a rebuild.
+Spaces on the free tier cold-start after ~48 h idle; first request after a long
+sleep pays the wake-up latency.
 
 ## Attribution and licensing
 
