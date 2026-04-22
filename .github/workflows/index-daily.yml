@@ -4,17 +4,6 @@ on:
   schedule:
     - cron: "0 5 * * *"
   workflow_dispatch:
-    inputs:
-      limit:
-        description: "Max comics to fetch this run (leave empty for full). Use for fast CI iteration."
-        required: false
-        default: ""
-      publish:
-        description: "Publish the resulting index.sqlite as a GitHub Release asset."
-        required: false
-        default: "true"
-        type: choice
-        options: ["true", "false"]
 
 permissions:
   contents: write
@@ -27,8 +16,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    env:
-      XKCD_INDEX_DIR: ${{ github.workspace }}/build
     steps:
       - uses: actions/checkout@v4
 
@@ -47,32 +34,28 @@ jobs:
       - name: Restore partial index
         uses: actions/cache/restore@v4
         with:
-          path: ${{ github.workspace }}/build
+          path: ~/.cache/xkcd-search
           key: index-partial-${{ github.run_id }}
           restore-keys: |
             index-partial-
 
-      - name: Install project dependencies
+      - name: Install dependencies
         run: uv sync --frozen
 
       - name: Build index
-        env:
-          XKCD_INDEXER_LIMIT: ${{ inputs.limit }}
-        run: |
-          mkdir -p "$XKCD_INDEX_DIR"
-          uv run python -m xkcd_search.indexer_main
+        run: uv run python -m xkcd_search.builder
 
       - name: Save partial index cache
         if: always()
         uses: actions/cache/save@v4
         with:
-          path: ${{ github.workspace }}/build
+          path: ~/.cache/xkcd-search
           key: index-partial-${{ github.run_id }}
 
       - name: Check artifact size
         run: |
-          ls -lh "$XKCD_INDEX_DIR/index.sqlite"
-          size=$(stat -c%s "$XKCD_INDEX_DIR/index.sqlite")
+          ls -lh ~/.cache/xkcd-search/index.sqlite
+          size=$(stat -c%s ~/.cache/xkcd-search/index.sqlite)
           echo "index.sqlite is $size bytes"
           if [ "$size" -gt 1073741824 ]; then
             echo "artifact exceeds 1 GiB; aborting" >&2
@@ -80,15 +63,18 @@ jobs:
           fi
 
       - name: Publish release
-        if: |
-          success() &&
-          (inputs.publish != 'false') &&
-          (inputs.limit == '' || inputs.limit == null)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           tag="data-$(date -u +%Y-%m-%d-%H%M%S)"
           gh release create "$tag" \
-            "$XKCD_INDEX_DIR/index.sqlite" \
+            ~/.cache/xkcd-search/index.sqlite \
             --title "Index $(date -u +%Y-%m-%d)" \
             --notes "Automated daily rebuild. Corpus: xkcd.com + explainxkcd.com wikitext (CC BY-SA 3.0)."
+
+      - name: Trigger FastMCP redeploy
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit --allow-empty -m "redeploy: new index artifact"
+          git push

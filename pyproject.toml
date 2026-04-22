@@ -12,7 +12,6 @@ dependencies = [
     "fastmcp>=3.2.4",
     "httpx>=0.28.1",
     "mwparserfromhell>=0.7.2",
-    "platformdirs>=4.9.6",
     "sentence-transformers>=5.4.1",
     "sqlite-vec>=0.1.9",
 ]
@@ -41,11 +40,12 @@ python-version = "3.12"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra --strict-markers"
+asyncio_mode = "auto"
 
 [dependency-groups]
 dev = [
     "pytest>=9.0.3",
-    "pytest-recording>=0.13.4",
+    "pytest-asyncio>=0.24",
     "ruff>=0.15.11",
     "ty>=0.0.31",
 ]

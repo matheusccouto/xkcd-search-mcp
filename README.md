@@ -1,6 +1,14 @@
-# xkcd-search-mcp
+---
+title: xkcd-search
+emoji: 🔎
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+---
 
-![status](https://img.shields.io/badge/status-WIP-yellow)
+# xkcd-search-mcp
 
 Semantic search for xkcd comics, served over the Model Context Protocol. Given a
 natural-language prompt, the `search_xkcd` tool returns the top-K most relevant
@@ -12,44 +20,21 @@ wiki.
 The public MCP endpoint:
 
 ```
-https://xkcd-search.fastmcp.app/mcp
+https://couto-xkcd-search.hf.space/mcp
 ```
 
 Point any MCP client (Claude Desktop, mcp-inspector, Cursor, etc.) at that URL.
+It is anonymous HTTPS; no OAuth or API key is required.
 
-See [Hosting](#hosting) for notes on the current authentication situation on
-FastMCP Cloud and the fallback plan.
-
-## The tools
+## The tool
 
 ```python
-search_xkcd(
-    query: str,
-    k: int = 5,
-    include_transcript: bool = False,
-    include_explanation: bool = True,
-    include_image_url: bool = True,
-    include_alt_text: bool = True,
-) -> list[dict]
+search_xkcd(query: str, k: int = 5) -> list[dict]
 ```
 
-Semantic top-K lookup. Every result includes `number`, `title`, `url`, and
-`similarity`. The boolean flags let the caller opt into heavier fields per
-call rather than baking the choice into the server.
-
-```python
-get_comic(
-    number: int,
-    include_transcript: bool = True,
-    include_explanation: bool = True,
-    include_image_url: bool = True,
-    include_alt_text: bool = True,
-) -> dict | None
-```
-
-Direct lookup by comic number. Returns `None` if the comic is not in the
-index (either unpublished or skipped, like comic 404). Useful when the caller
-already knows which comic it wants.
+Semantic top-K lookup. Every result is a dict with `number`, `title`, `url`,
+`image_url`, `alt_text`, `transcript`, and `explanation`. Cite `url` when
+referencing a comic.
 
 ## How it works
 
@@ -60,9 +45,11 @@ already knows which comic it wants.
 3. Chunks are embedded with `BAAI/bge-small-en-v1.5` (384-dim, L2-normalized)
    and written into a single `index.sqlite` file backed by `sqlite-vec`.
 4. The artifact is published as the `index.sqlite` asset on the repo's latest
-   GitHub Release.
-5. The FastMCP server downloads that asset on startup and polls hourly for a
-   newer one. Queries run locally against the in-memory SQLite file.
+   GitHub Release, and the workflow pushes an empty commit to `main`. The
+   Hugging Face Space is linked to this GitHub repo, so that push triggers
+   a rebuild.
+5. The FastMCP server downloads that asset on boot. Queries run locally
+   against the SQLite file; there is no background polling.
 
 There is no hosted database and no API key anywhere in the stack.
 
@@ -70,39 +57,38 @@ There is no hosted database and no API key anywhere in the stack.
 
 ```bash
 uv sync
-uv run pytest                                 # replays VCR cassettes, no network
-uv run python -m xkcd_search.indexer_main     # build a local index.sqlite (slow)
-uv run fastmcp dev src/xkcd_search/server.py  # open the FastMCP inspector
+uv run pytest                                   # integration tests (in-process)
+uv run python -m xkcd_search.builder            # build a local index.sqlite (slow)
+uv run fastmcp dev src/xkcd_search/server.py    # open the FastMCP inspector
 ```
 
-The indexer caches to `platformdirs.user_cache_dir("xkcd-search", "matheus")`
-by default; override with `XKCD_INDEX_DIR`.
+The builder writes to `~/.cache/xkcd-search/index.sqlite`. Delete that file
+to force a re-download on the next server boot.
 
-For a fast CI iteration against the daily workflow, set `XKCD_INDEXER_LIMIT`
-(or pass `limit` via `workflow_dispatch`) to cap how many new comics one run
-fetches.
+## Testing
+
+```bash
+uv run pytest                                             # in-process integration
+XKCD_TEST_URL=https://couto-xkcd-search.hf.space/mcp \
+    uv run pytest tests/test_server.py                    # hit the live Space
+```
+
+Tests use an in-process `fastmcp.Client` against a 3-comic fixture index
+built once per session by fetching real data from xkcd.com and
+explainxkcd.com. Setting `XKCD_TEST_URL` redirects the suite at a deployed
+endpoint instead.
 
 ## Hosting
 
 The server is designed to be dead simple to host: one Python process, one
 downloaded SQLite file. There is no database, no secrets, no credentials.
 
-**Current:** FastMCP Cloud, free tier. The free tier requires the server to
-sit behind an OAuth provider (Horizon by Prefect) for anonymous public access,
-which is a barrier for some MCP clients. The endpoint above works for clients
-that support OAuth; for clients that don't, see the fallback.
-
-**Fallback — Hugging Face Spaces (CPU Basic).** Free forever, 16 GB RAM, 2
-vCPU, no credit card. Cold-starts after ~48 h idle but serves unauthenticated
-HTTPS once warm. Migration is a Docker-SDK Space that runs FastMCP's HTTP
-transport. No code change is required — the server downloads its own data on
-first query regardless of where it runs.
-
-## Contributing
-
-Open work items live in [`TODO.md`](./TODO.md). The long-form architectural
-plan is at `/home/matheus/.claude/plans/i-will-start-a-dapper-wreath.md`
-(local to the original author).
+Runs on Hugging Face Spaces (CPU Basic, free tier: 16 GB RAM, 2 vCPU) as a
+Docker-SDK Space. The `Dockerfile` at the repo root is the build recipe. The
+Space is linked to this GitHub repo, so every push to `main` (including the
+nightly empty-commit from the indexer) rebuilds it. Spaces on the free tier
+cold-start after ~48 h idle; first request after a long sleep pays the wake-up
+latency.
 
 ## Attribution and licensing
 
