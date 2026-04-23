@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import sqlite3
 import sys
-import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import lru_cache
@@ -20,6 +19,7 @@ import mwparserfromhell
 import numpy as np
 import sqlite_vec
 from sentence_transformers import SentenceTransformer
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 INDEX_PATH = Path.home() / ".cache" / "xkcd-search" / "index.sqlite"
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")
@@ -34,6 +34,8 @@ EXPLAIN_API = "https://www.explainxkcd.com/wiki/api.php"
 MIN_CHUNK_CHARS = 20
 MAX_CHUNK_WORDS = 380  # ~500 tokens at 1.3 tokens/word
 SKIP_NUMBERS = {404}
+
+RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
 
 @dataclass(frozen=True)
@@ -101,44 +103,41 @@ def fetch_xkcd(number: int, client: httpx.Client) -> XkcdMeta:
     )
 
 
-MAX_RETRIES = 3
-RETRY_BASE_DELAY = 2.0  # seconds
-RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
+def is_retryable_http_error(exception: Exception) -> bool:
+    """Return True if the exception is a retryable HTTP status error."""
+    return (
+        isinstance(exception, httpx.HTTPStatusError)
+        and exception.response.status_code in RETRYABLE_STATUS_CODES
+    )
 
 
+@retry(
+    retry=retry_if_exception_type(httpx.HTTPStatusError) & retry_if_exception_type(is_retryable_http_error),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    reraise=True,
+)
 def fetch_explainxkcd(number: int, client: httpx.Client) -> ExplainArticle | None:
     """Fetch the explainxkcd wikitext for a comic. Returns None when absent.
 
     Retries on transient server errors (429, 5xx) with exponential backoff.
     """
-    last_error: Exception | None = None
-    for attempt in range(MAX_RETRIES):
-        try:
-            resp = client.get(
-                EXPLAIN_API,
-                params={
-                    "action": "parse",
-                    "page": str(number),
-                    "redirects": "1",
-                    "prop": "wikitext",
-                    "format": "json",
-                },
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            if "error" in data:
-                return None
-            wikitext = data.get("parse", {}).get("wikitext", {}).get("*", "")
-            return ExplainArticle(number=number, wikitext=wikitext) if wikitext else None
-        except httpx.HTTPStatusError as e:
-            last_error = e
-            if e.response.status_code in RETRYABLE_STATUS_CODES and attempt < MAX_RETRIES - 1:
-                delay = RETRY_BASE_DELAY * (2**attempt)
-                print(f"comic {number}: {e.response.status_code} error, retrying in {delay}s (attempt {attempt + 2}/{MAX_RETRIES})", flush=True)
-                time.sleep(delay)
-            else:
-                raise
-    raise last_error if last_error else RuntimeError("unreachable")
+    resp = client.get(
+        EXPLAIN_API,
+        params={
+            "action": "parse",
+            "page": str(number),
+            "redirects": "1",
+            "prop": "wikitext",
+            "format": "json",
+        },
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    if "error" in data:
+        return None
+    wikitext = data.get("parse", {}).get("wikitext", {}).get("*", "")
+    return ExplainArticle(number=number, wikitext=wikitext) if wikitext else None
 
 
 def _split_long(kind: str, body: str) -> list[Chunk]:
