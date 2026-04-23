@@ -19,6 +19,7 @@ import mwparserfromhell
 import numpy as np
 import sqlite_vec
 from sentence_transformers import SentenceTransformer
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 INDEX_PATH = Path.home() / ".cache" / "xkcd-search" / "index.sqlite"
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")
@@ -33,6 +34,8 @@ EXPLAIN_API = "https://www.explainxkcd.com/wiki/api.php"
 MIN_CHUNK_CHARS = 20
 MAX_CHUNK_WORDS = 380  # ~500 tokens at 1.3 tokens/word
 SKIP_NUMBERS = {404}
+
+RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
 
 @dataclass(frozen=True)
@@ -100,8 +103,25 @@ def fetch_xkcd(number: int, client: httpx.Client) -> XkcdMeta:
     )
 
 
+def is_retryable_http_error(exception: Exception) -> bool:
+    """Return True if the exception is a retryable HTTP status error."""
+    return (
+        isinstance(exception, httpx.HTTPStatusError)
+        and exception.response.status_code in RETRYABLE_STATUS_CODES
+    )
+
+
+@retry(
+    retry=retry_if_exception_type(httpx.HTTPStatusError) & retry_if_exception_type(is_retryable_http_error),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    reraise=True,
+)
 def fetch_explainxkcd(number: int, client: httpx.Client) -> ExplainArticle | None:
-    """Fetch the explainxkcd wikitext for a comic. Returns None when absent."""
+    """Fetch the explainxkcd wikitext for a comic. Returns None when absent.
+
+    Retries on transient server errors (429, 5xx) with exponential backoff.
+    """
     resp = client.get(
         EXPLAIN_API,
         params={
