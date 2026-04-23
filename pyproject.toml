@@ -11,10 +11,8 @@ requires-python = ">=3.12"
 dependencies = [
     "fastmcp>=3.2.4",
     "httpx>=0.28.1",
-    "mwparserfromhell>=0.7.2",
     "sentence-transformers>=5.4.1",
     "sqlite-vec>=0.1.9",
-    "tenacity>=9.0.0",
 ]
 
 [project.urls]
@@ -44,6 +42,10 @@ addopts = "-ra --strict-markers"
 asyncio_mode = "auto"
 
 [dependency-groups]
+builder = [
+    "mwparserfromhell>=0.7.2",
+    "tenacity>=9.0.0",
+]
 dev = [
     "pytest>=9.0.3",
     "pytest-asyncio>=0.24",

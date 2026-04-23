@@ -15,11 +15,10 @@ from functools import lru_cache
 from pathlib import Path
 
 import httpx
-import mwparserfromhell
 import numpy as np
 import sqlite_vec
+import tenacity
 from sentence_transformers import SentenceTransformer
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 INDEX_PATH = Path.home() / ".cache" / "xkcd-search" / "index.sqlite"
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")
@@ -111,10 +110,10 @@ def is_retryable_http_error(exception: Exception) -> bool:
     )
 
 
-@retry(
-    retry=retry_if_exception_type(httpx.HTTPStatusError) & retry_if_exception_type(is_retryable_http_error),
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=2, max=10),
+@tenacity.retry(
+    retry=tenacity.retry_if_exception(is_retryable_http_error),
+    stop=tenacity.stop_after_attempt(3),
+    wait=tenacity.wait_exponential(multiplier=1, min=2, max=10),
     reraise=True,
 )
 def fetch_explainxkcd(number: int, client: httpx.Client) -> ExplainArticle | None:
@@ -158,6 +157,8 @@ def _split_long(kind: str, body: str) -> list[Chunk]:
 
 def chunk_comic(xkcd: XkcdMeta, article: ExplainArticle | None) -> list[Chunk]:
     """Always emits a title chunk, plus transcript and one chunk per explainxkcd section."""
+    import mwparserfromhell  # builder-only dependency
+
     chunks: list[Chunk] = [Chunk(kind="title", text=xkcd.title)]
     if xkcd.transcript.strip():
         chunks.append(Chunk(kind="transcript", text=xkcd.transcript.strip()))

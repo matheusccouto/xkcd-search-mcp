@@ -1885,6 +1885,15 @@ wheels = [
 ]
 
 [[package]]
+name = "tenacity"
+version = "9.1.4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/47/c6/ee486fd809e357697ee8a44d3d69222b344920433d3b6666ccd9b374630c/tenacity-9.1.4.tar.gz", hash = "sha256:adb31d4c263f2bd041081ab33b498309a57c77f9acf2db65aadf0898179cf93a", size = 49413, upload-time = "2026-02-07T10:45:33.841Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl", hash = "sha256:6095a360c919085f28c6527de529e76a06ad89b23659fa881ae0649b867a9d55", size = 28926, upload-time = "2026-02-07T10:45:32.24Z" },
+]
+
+[[package]]
 name = "threadpoolctl"
 version = "3.6.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2215,12 +2224,15 @@ source = { editable = "." }
 dependencies = [
     { name = "fastmcp" },
     { name = "httpx" },
-    { name = "mwparserfromhell" },
     { name = "sentence-transformers" },
     { name = "sqlite-vec" },
 ]
 
 [package.dev-dependencies]
+builder = [
+    { name = "mwparserfromhell" },
+    { name = "tenacity" },
+]
 dev = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -2232,12 +2244,15 @@ dev = [
 requires-dist = [
     { name = "fastmcp", specifier = ">=3.2.4" },
     { name = "httpx", specifier = ">=0.28.1" },
-    { name = "mwparserfromhell", specifier = ">=0.7.2" },
     { name = "sentence-transformers", specifier = ">=5.4.1" },
     { name = "sqlite-vec", specifier = ">=0.1.9" },
 ]
 
 [package.metadata.requires-dev]
+builder = [
+    { name = "mwparserfromhell", specifier = ">=0.7.2" },
+    { name = "tenacity", specifier = ">=9.0.0" },
+]
 dev = [
     { name = "pytest", specifier = ">=9.0.3" },
     { name = "pytest-asyncio", specifier = ">=0.24" },
